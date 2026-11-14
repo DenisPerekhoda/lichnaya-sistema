@@ -4,8 +4,11 @@ const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const configured = Boolean(url && key)
-// pkce: ссылка из письма приходит с ?code=..., а не с #токеном — не конфликтует с адресами вида /#/today
-export const supabase = configured ? createClient(url, key, { auth: { flowType: 'pkce' } }) : null
+// implicit: ссылка из письма работает на любом устройстве и в любом браузере
+// (pkce требовал открывать ссылку в том же браузере, где её запросили)
+export const supabase = configured
+  ? createClient(url, key, { auth: { flowType: 'implicit', detectSessionInUrl: true, persistSession: true } })
+  : null
 
 export const rub = (n) =>
   (Number(n) || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽'
