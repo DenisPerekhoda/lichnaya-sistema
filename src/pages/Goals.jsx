@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTable } from '../useTable'
 import { useSettings } from '../useSettings'
 import { supabase, weekStart } from '../supabase'
-import { Edit, Progress, Err, pct } from '../ui'
+import { Edit, Progress, Err, pct, RemoveButton, Skeleton } from '../ui'
 
 const QUESTIONS = [
   'Почему деньги стали приходить легче на этой неделе?',
@@ -18,16 +18,22 @@ export default function Goals({ userId }) {
   const [newGoal, setNewGoal] = useState('')
 
   return (
+    <>
+    <div className="page-head">
+      <h1>Цели и чек-ин</h1>
+    </div>
     <div className="cols">
       <div className="main">
         <Err>{goals.error || krs.error}</Err>
         {s && (
-          <section className="card">
-            <div className="small" style={{ color: 'var(--accent)', fontWeight: 600, letterSpacing: '.08em' }}>ВИДЕНИЕ</div>
-            <Edit value={s.vision} onSave={(v) => saveS({ vision: v })} />
+          <section className="card" aria-labelledby="vision-h">
+            <h2 id="vision-h" className="small muted" style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Видение</h2>
+            <Edit className="vision" label="Видение" value={s.vision} onSave={(v) => saveS({ vision: v })} />
           </section>
         )}
-        <div className="grid g3">
+        {goals.loading && <div className="grid g2"><Skeleton h={220} /><Skeleton h={220} /></div>}
+        {!goals.loading && goals.rows.length === 0 && <p className="empty">Целей цикла пока нет. Добавь первую ниже.</p>}
+        <div className="grid g2">
           {goals.rows.map((g, i) => (
             <Goal key={g.id} n={i + 1} goal={g} goals={goals} krs={krs} />
           ))}
@@ -46,6 +52,7 @@ export default function Goals({ userId }) {
         <Checkin />
       </div>
     </div>
+    </>
   )
 }
 
@@ -55,23 +62,24 @@ function Goal({ n, goal, goals, krs }) {
   const avg = mine.length ? Math.round(mine.reduce((a, k) => a + pct(+k.current, +k.target), 0) / mine.length) : 0
   return (
     <article className="card">
-      <div className="row between">
-        <span className="muted small" style={{ fontWeight: 600 }}>ЦЕЛЬ {n} · {avg}%</span>
-        <button className="btn link" aria-label="Удалить цель" onClick={() => window.confirm('Удалить цель со всеми результатами?') && goals.remove(goal.id)}>✕</button>
+      <div className="row between" style={{ flexWrap: 'nowrap' }}>
+        <span className="muted small">Цель {n}, выполнено <span className="pct">{avg}%</span></span>
+        <RemoveButton label="Удалить цель" onClick={() => window.confirm('Удалить цель со всеми результатами?') && goals.remove(goal.id)} />
       </div>
-      <Edit value={goal.title} onSave={(v) => goals.update(goal.id, { title: v })} />
+      <Edit className="goal-title" label={`Цель ${n}`} value={goal.title} onSave={(v) => goals.update(goal.id, { title: v })} />
       {mine.map((k) => (
-        <div key={k.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div className="row between small">
-            <span style={{ flex: 1, minWidth: 0 }}>{k.title}</span>
-            <button className="btn link" aria-label="Удалить результат" onClick={() => krs.remove(k.id)}>✕</button>
+        <div key={k.id} className="kr">
+          <div className="row between" style={{ flexWrap: 'nowrap' }}>
+            <span className="small" style={{ flex: 1, minWidth: 0 }}>{k.title}</span>
+            <span className="small pct">{pct(+k.current, +k.target)}%</span>
+            <RemoveButton label={`Удалить результат «${k.title}»`} onClick={() => krs.remove(k.id)} />
           </div>
-          <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <Edit type="number" value={+k.current} onSave={(v) => krs.update(k.id, { current: v })} />
-            <span className="muted">из</span>
-            <Edit type="number" value={+k.target} onSave={(v) => krs.update(k.id, { target: v })} />
+          <div className="kr-nums">
+            <Edit type="number" label="Сейчас" value={+k.current} onSave={(v) => krs.update(k.id, { current: v })} />
+            <span className="muted small">из</span>
+            <Edit type="number" label="Цель" value={+k.target} onSave={(v) => krs.update(k.id, { target: v })} />
           </div>
-          <Progress value={+k.current} max={+k.target} warn />
+          <Progress value={+k.current} max={+k.target} warn label={k.title} />
         </div>
       ))}
       <form className="row" onSubmit={async (e) => {
@@ -81,7 +89,7 @@ function Goal({ n, goal, goals, krs }) {
         setT('')
       }}>
         <input style={{ flex: 1, width: 'auto' }} value={t} onChange={(e) => setT(e.target.value)} placeholder="Ключевой результат" aria-label="Новый ключевой результат" />
-        <button className="btn" type="submit">+</button>
+        <button className="btn" type="submit" aria-label="Добавить ключевой результат">Добавить</button>
       </form>
     </article>
   )
@@ -126,7 +134,7 @@ function Checkin() {
           <input value={next} onChange={(e) => setNext(e.target.value)} />
         </label>
         <div className="row">
-          <button className="btn primary" onClick={save}>Сохранить неделю</button>
+          <button type="button" className="btn primary" onClick={save}>Сохранить неделю</button>
           <span className="muted small">{saved}</span>
         </div>
       </section>
@@ -135,7 +143,7 @@ function Checkin() {
           <h2>Прошлые недели</h2>
           {history.map((h) => (
             <details key={h.id}>
-              <summary style={{ cursor: 'pointer' }}>Неделя с {new Date(h.week_start).toLocaleDateString('ru-RU')}{h.next_action && ` → ${h.next_action}`}</summary>
+              <summary style={{ cursor: 'pointer' }}>Неделя с {new Date(h.week_start).toLocaleDateString('ru-RU')}{h.next_action && `, действие: ${h.next_action}`}</summary>
               {QUESTIONS.map((q, i) => h.answers?.[i] && (
                 <p key={i} className="small"><b>{q}</b><br />{h.answers[i]}</p>
               ))}

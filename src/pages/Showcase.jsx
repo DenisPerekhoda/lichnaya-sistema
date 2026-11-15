@@ -17,7 +17,7 @@ export default function Showcase() {
     })()
   }, [])
 
-  if (p === undefined) return <div className="show"><div className="inner muted">Загрузка…</div></div>
+  if (p === undefined) return <div className="show"><div className="inner muted" role="status">Загрузка…</div></div>
   if (!p) return <div className="show"><div className="inner"><h1>Страница скоро появится</h1></div></div>
 
   const contact = p.contact?.trim()
@@ -31,13 +31,13 @@ export default function Showcase() {
     <div className="show">
       <div className="inner">
         <h1>{p.name}</h1>
-        {p.headline && <p className="lead" style={{ margin: 0, fontWeight: 600 }}>{p.headline}</p>}
-        {p.about && <p className="lead" style={{ margin: 0 }}>{p.about}</p>}
+        {p.headline && <p className="lead" style={{ fontWeight: 500, color: 'var(--color-ink)' }}>{p.headline}</p>}
+        {p.about && <p className="lead">{p.about}</p>}
         {cases.length > 0 && (
           <div className="grid g3">
             {cases.map((c) => (
               <div className="case" key={c.id}>
-                <div className="big">{c.value}</div>
+                <div className="figure">{c.value}</div>
                 <div className="muted">{c.label}</div>
               </div>
             ))}
@@ -45,7 +45,7 @@ export default function Showcase() {
         )}
         {href && (
           <div className="row">
-            <a className="cta" href={href} target="_blank" rel="noreferrer">Обсудить проект</a>
+            <a className="btn primary" href={href} target="_blank" rel="noreferrer">Обсудить проект</a>
             <span className="muted">{contact}</span>
           </div>
         )}

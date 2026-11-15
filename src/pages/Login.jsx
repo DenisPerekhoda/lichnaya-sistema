@@ -20,9 +20,9 @@ export default function Login() {
       const m = error.message
       setErr(
         /Invalid login/i.test(m) ? 'Неверная почта или пароль'
-        : /already registered/i.test(m) ? 'Такой пользователь уже есть — войди'
+        : /already registered/i.test(m) ? 'Такой пользователь уже есть, войди'
         : /Signups not allowed/i.test(m) ? 'Регистрация закрыта'
-        : /at least/i.test(m) ? 'Пароль слишком короткий — нужно минимум 6 символов'
+        : /at least/i.test(m) ? 'Пароль слишком короткий: нужно минимум 6 символов'
         : m
       )
     } else if (mode === 'up' && !data.session) {
@@ -30,22 +30,30 @@ export default function Login() {
     }
   }
 
+  const pick = (m) => { setMode(m); setErr('') }
+
   return (
-    <div className="center">
-      <form className="card narrow" onSubmit={submit}>
-        <div className="eyebrow">Личная система</div>
-        <h1>{mode === 'in' ? 'Вход' : 'Создать аккаунт'}</h1>
+    <div className="auth">
+      <div className="auth-intro">
+        <span className="wordmark">Личная <span>система</span></span>
+        <h1>Проекты, доход и цели в одном кабинете</h1>
+      </div>
+      <form className="card" onSubmit={submit} noValidate={false}>
+        <h2>{mode === 'in' ? 'Вход' : 'Создать аккаунт'}</h2>
+        <div className="seg auth-seg" role="group" aria-label="Режим">
+          <button type="button" aria-pressed={mode === 'in'} onClick={() => pick('in')}>Вход</button>
+          <button type="button" aria-pressed={mode === 'up'} onClick={() => pick('up')}>Регистрация</button>
+        </div>
         <label>Почта
-          <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          <input type="email" name="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
         </label>
         <label>Пароль
-          <input type="password" required minLength={6} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input type="password" name="password" required minLength={6} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Подождите…' : mode === 'in' ? 'Войти' : 'Создать аккаунт'}</button>
-        <button type="button" className="btn link" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setErr('') }}>
-          {mode === 'in' ? 'Первый раз? Создать аккаунт' : 'Уже есть аккаунт? Войти'}
+        <button className="btn primary" type="submit" disabled={busy} aria-busy={busy}>
+          {busy ? 'Подождите…' : mode === 'in' ? 'Войти' : 'Создать аккаунт'}
         </button>
-        {err && <div className="err">{err}</div>}
+        {err && <div className="err" role="alert">{err}</div>}
       </form>
     </div>
   )

@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 import { useTable } from '../useTable'
 import { useSettings } from '../useSettings'
 import { seed } from '../seed'
-import { Edit, Err } from '../ui'
+import { Edit, Err, RemoveButton } from '../ui'
 
 export default function Settings({ userId }) {
   const [s, saveS] = useSettings(userId)
@@ -25,13 +25,17 @@ export default function Settings({ userId }) {
   const runSeed = async () => {
     if (!window.confirm('Добавить стартовые данные: проекты, сделки, цели, задачи и витрину?')) return
     setSeeding('Заполняю…')
-    try { await seed(userId); setSeeding('Готово — обнови страницу'); }
+    try { await seed(userId); setSeeding('Готово, обнови страницу'); }
     catch (e) { setSeeding('Ошибка: ' + e.message) }
   }
 
   const showcaseUrl = window.location.origin + window.location.pathname + '#/showcase'
 
   return (
+    <>
+    <div className="page-head">
+      <h1>Витрина и данные</h1>
+    </div>
     <div className="cols">
       <div className="main">
         <Err>{cases.error}</Err>
@@ -39,12 +43,12 @@ export default function Settings({ userId }) {
           <section className="card">
             <div className="row between">
               <h2>Витрина для клиентов</h2>
-              <label style={{ flexDirection: 'row', alignItems: 'center', color: 'var(--text)' }}>
+              <label className="inline">
                 <input type="checkbox" checked={profile.is_public} onChange={(e) => saveP({ is_public: e.target.checked })} />
                 Опубликована
               </label>
             </div>
-            <span className="muted small">Ссылка: <a href={showcaseUrl} target="_blank" rel="noreferrer">{showcaseUrl}</a>{!profile.is_public && ' — пока скрыта'}</span>
+            <span className="muted small">Ссылка: <a href={showcaseUrl} target="_blank" rel="noreferrer">{showcaseUrl}</a>{!profile.is_public && ', пока скрыта'}</span>
             <label>Имя<Edit value={profile.name} onSave={(v) => saveP({ name: v })} /></label>
             <label>Заголовок<Edit value={profile.headline} onSave={(v) => saveP({ headline: v })} /></label>
             <label>О себе<Edit value={profile.about} onSave={(v) => saveP({ about: v })} /></label>
@@ -52,13 +56,13 @@ export default function Settings({ userId }) {
             <h3 style={{ marginTop: 8 }}>Цифры и кейсы</h3>
             {cases.rows.map((c) => (
               <div className="row" key={c.id} style={{ flexWrap: 'nowrap' }}>
-                <Edit value={c.value} onSave={(v) => cases.update(c.id, { value: v })} />
-                <Edit value={c.label} onSave={(v) => cases.update(c.id, { label: v })} />
+                <Edit label="Цифра" value={c.value} onSave={(v) => cases.update(c.id, { value: v })} />
+                <Edit label="Что за ней стоит" value={c.label} onSave={(v) => cases.update(c.id, { label: v })} />
                 <input type="checkbox" checked={c.is_public} onChange={() => cases.update(c.id, { is_public: !c.is_public })} aria-label="Показывать на витрине" />
-                <button className="btn link" aria-label="Удалить" onClick={() => cases.remove(c.id)}>✕</button>
+                <RemoveButton label={`Удалить кейс «${c.value}»`} onClick={() => cases.remove(c.id)} />
               </div>
             ))}
-            <button className="btn" onClick={() => cases.insert({ value: 'Цифра', label: 'что за ней стоит', sort: cases.rows.length + 1 })}>Добавить кейс</button>
+            <button type="button" className="btn" onClick={() => cases.insert({ value: 'Цифра', label: 'что за ней стоит', sort: cases.rows.length + 1 })}>Добавить кейс</button>
           </section>
         )}
       </div>
@@ -79,10 +83,11 @@ export default function Settings({ userId }) {
         <section className="card">
           <h2>Стартовые данные</h2>
           <span className="muted small">Один раз заполнит систему твоими проектами, сделками, целями цикла и витриной. Всё можно поправить.</span>
-          <button className="btn primary" onClick={runSeed}>Заполнить</button>
+          <button type="button" className="btn primary" onClick={runSeed}>Заполнить</button>
           <span className="muted small">{seeding}</span>
         </section>
       </div>
     </div>
+    </>
   )
 }

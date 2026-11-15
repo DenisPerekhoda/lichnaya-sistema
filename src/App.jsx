@@ -11,11 +11,11 @@ import Settings from './pages/Settings'
 function NotConfigured() {
   return (
     <div className="center">
-      <div className="card narrow">
+      <div className="card" style={{ maxWidth: 440 }}>
         <h1>Почти готово</h1>
         <p className="muted">
           Не заданы ключи Supabase. Добавь переменные <code>VITE_SUPABASE_URL</code> и{' '}
-          <code>VITE_SUPABASE_ANON_KEY</code> — инструкция в README.
+          <code>VITE_SUPABASE_ANON_KEY</code>, инструкция в README.
         </p>
       </div>
     </div>
@@ -62,29 +62,34 @@ function Shell({ session }) {
     ['/settings', 'Витрина и данные'],
   ]
   return (
-    <div className="wrap">
-      <header className="top">
-        <div>
-          <div className="eyebrow">Личная система</div>
-          <div className="brand">Холдинг «Перехода»</div>
+    <>
+      <header className="topbar">
+        <div className="topbar-in">
+          <NavLink to="/" className="wordmark" aria-label="Личная система, на главную">
+            Личная <span>система</span>
+          </NavLink>
+          <nav className="seg" aria-label="Разделы">
+            {links.map(([to, label]) => (
+              <NavLink key={to} to={to} end className={({ isActive }) => (isActive ? 'on' : undefined)}>
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="topbar-end">
+            <a className="btn ghost" href="#/showcase" target="_blank" rel="noreferrer"><span className="hide-s">Открыть витрину</span><span className="show-s">Витрина</span></a>
+            <button type="button" className="btn ghost" onClick={() => supabase.auth.signOut()}>Выйти</button>
+          </div>
         </div>
-        <nav className="nav">
-          {links.map(([to, label]) => (
-            <NavLink key={to} to={to} end className={({ isActive }) => (isActive ? 'pill on' : 'pill')}>
-              {label}
-            </NavLink>
-          ))}
-          <a className="pill" href="#/showcase" target="_blank" rel="noreferrer">Открыть витрину ↗</a>
-          <button className="pill ghost" onClick={() => supabase.auth.signOut()}>Выйти</button>
-        </nav>
       </header>
-      <Routes>
-        <Route path="/" element={<Cabinet userId={session.user.id} />} />
-        <Route path="/today" element={<Today userId={session.user.id} />} />
-        <Route path="/goals" element={<Goals userId={session.user.id} />} />
-        <Route path="/settings" element={<Settings userId={session.user.id} />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </div>
+      <main className="page">
+        <Routes>
+          <Route path="/" element={<Cabinet userId={session.user.id} />} />
+          <Route path="/today" element={<Today userId={session.user.id} />} />
+          <Route path="/goals" element={<Goals userId={session.user.id} />} />
+          <Route path="/settings" element={<Settings userId={session.user.id} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </main>
+    </>
   )
 }
