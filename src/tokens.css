@@ -37,8 +37,8 @@
   --color-src-6: oklch(88% 0.08 152);
   --color-src-7: oklch(68% 0.14 25);
 
-  --font-display: "Onest", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Onest", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-outlier: var(--font-body);
   --radius-card: 16px; --radius-control: 12px; --radius-pill: 999px; --rule-hair: 1px;
   --shadow-card: 0 1px 2px var(--color-shade), 0 8px 24px var(--color-shade);

@@ -21,6 +21,8 @@ BUSINESS_PREFIX = 'ИП '
 NON_BASE_INCOME = ['ООО «Ника»', 'Яна', 'Кэшбек', 'Корректировка']
 INCOME_GOAL = 1_000_000
 MONTH_NET_GOAL = 50_000
+# Ключевая ставка ЦБ для оценки «упущенного дохода» свободных денег
+KEY_RATE = {'value': 14.0, 'date': '2026-10-23'}
 
 
 def load(p):
@@ -74,6 +76,7 @@ def main():
             'expense': round(exp['factWithRefund']),
             'net': round(inc['factWithRefund'] - exp['factWithRefund']),
             'sources': {x['name']: x['fact'] for x in top_rows(rows, True) if x['fact'] > 0},
+            'expenses': {x['name']: x['fact'] for x in top_rows(rows, False) if x['fact'] > 0},
             'partial': mon == cur and days_left > 0,
         })
 
@@ -151,6 +154,7 @@ def main():
         'averages': {'income': avg_inc, 'expense': avg_exp, 'net': avg_inc - avg_exp,
                      'expense_limit_for_goal': base_total - MONTH_NET_GOAL},
         'cushion_days': cushion_days,
+        'key_rate': KEY_RATE,
         'invest': build_invest(invest, gsum['invest']),
         'narrative': narrative,
     }

@@ -59,53 +59,310 @@ export default function Finance() {
       </div>
       <Err>{err}</Err>
 
-      <Overview d={d} n={n} />
+      <Goals d={d} n={n} />
+      <Flow d={d} />
+      <ExpensesVsLimit d={d} />
+      <CapitalAtWork d={d} />
       <MonthGoal d={d} />
       <Budget d={d} />
       <IncomeMonths d={d} />
       <NetMonths d={d} />
-      <Capital d={d} />
       <Invest inv={d.invest} />
-      <PathToMillion d={d} />
       {(n.risks?.length > 0 || n.actions?.length > 0) && <RisksActions n={n} />}
     </>
   )
 }
 
-// ---------- 0. Сводка ----------
-function Overview({ d, n }) {
-  const c = d.capital
-  const parts = [
-    ['Свободные деньги', c.sums.free + c.sums.business],
-    ['Облигации и копилка', c.sums.invest],
-    ['Пенсионные и долгосрочные', c.sums.long],
-    ['Подушка и цели', c.sums.cushion],
-  ].filter((x) => x[1] > 0)
+// ---------- A. Три цели ----------
+function Goals({ d, n }) {
+  const b = d.income_base
+  const gap = Math.max(0, b.goal - b.total)
+  const full = d.months.filter((m) => !m.partial)
+  const goalNet = d.current.goal_net
+  const hit = full.filter((m) => m.net >= goalNet).length
+  const inv = d.invest || {}
+  const passive = inv.coupons_month || 0
+  const avgExp = d.averages.expense
+  const cushion = d.capital.sums.cushion
+  const cushionTarget = d.averages.expense_limit_for_goal * 6
+  const tone = (m) => (m.net >= goalNet ? 'ok' : m.net >= 0 ? 'mid' : 'bad')
   return (
-    <section className="card" aria-labelledby="ov-h">
-      <div className="ledger">
-        <div className="ledger-total">
-          <h2 id="ov-h">{n.headline || 'Капитал'}</h2>
-          <span className="figure-xl">{mln(c.total)}</span>
-          <span className="muted small">чистый капитал{c.sums.debts < 0 ? `, долги ${rub(c.sums.debts)}` : ', долгов нет'}</span>
-          {n.summary && <p className="small" style={{ color: 'var(--color-ink-2)', marginTop: 'var(--space-xs)' }}>{n.summary}</p>}
+    <section className="section" aria-labelledby="goals-h">
+      <div className="hero-fin">
+        <div className="section" style={{ gap: 'var(--space-xs)' }}>
+          <h2 id="goals-h" className="hero-title">{n.headline || 'Финансы относительно целей'}</h2>
+          {n.summary && <p className="hero-sub">{n.summary}</p>}
         </div>
-        <div className="section">
-          <div className="stack" role="img" aria-label="Состав капитала">
-            {parts.map(([name, v], i) => <span key={name} style={{ flexGrow: v, background: SRC[i] }} title={name} />)}
+        <div className="hero-cap">
+          <span className="stat-label">Чистый капитал</span>
+          <span className="figure-xl">{mln(d.capital.total)}</span>
+          <span className="small muted">{d.capital.sums.debts < 0 ? `долги ${rub(d.capital.sums.debts)}` : 'долгов нет'}</span>
+        </div>
+      </div>
+      <div className="goal-grid">
+        <article className="card goal">
+          <div className="goal-head"><span className="goal-n">1</span><h3>Доход 1 млн ₽ в месяц</h3></div>
+          <div className="goal-figure"><span className="figure-xl">{k(b.total)}</span><span className="muted"> из {k(b.goal)} тыс.</span></div>
+          <div className="stack goal-stack" role="img" aria-label={`База ${k(b.total)} тыс., до цели ${k(gap)} тыс.`}>
+            {b.items.map((x, i) => <span key={x.name} style={{ flexGrow: x.amount, background: SRC[i] }} title={`${shortName(x.name)} ${k(x.amount)}`} />)}
+            {gap > 0 && <span className="gap-seg" style={{ flexGrow: gap }} title={`до цели ${k(gap)}`} />}
           </div>
-          <table className="src-table">
-            <caption className="visually-hidden">Состав капитала</caption>
+          <ul className="goal-list">
+            {b.items.map((x, i) => <li key={x.name}><span><i className="lg" style={{ background: SRC[i] }} />{shortName(x.name)}</span><span className="num">{k(x.amount)}</span></li>)}
+            <li className="goal-gap"><span><i className="lg gap" />Не хватает</span><span className="num">{k(gap)}</span></li>
+          </ul>
+          <p className="goal-verdict">{pct(b.total, b.goal)}% цели. Крупнейший источник даёт {pct(Math.max(...b.items.map((x) => x.amount)), b.total)}% базы.</p>
+        </article>
+
+        <article className="card goal">
+          <div className="goal-head"><span className="goal-n">2</span><h3>Оставлять {signedK(goalNet)} тыс. каждый месяц</h3></div>
+          <div className="goal-figure"><span className="figure-xl">{hit}</span><span className="muted"> из {full.length} месяцев</span></div>
+          <div className="strip" role="img" aria-label="Чистая прибыль по месяцам относительно цели">
+            {d.months.map((m) => (
+              <span key={m.month} className={'strip-cell ' + tone(m) + (m.partial ? ' partial' : '')} title={`${mlabel(m.month)}: ${signedK(m.net)} тыс.`}>
+                <b>{signedK(m.net)}</b><i>{mlabel(m.month)}</i>
+              </span>
+            ))}
+          </div>
+          <div className="legend-row small muted" aria-hidden="true">
+            <span><i className="lg" style={{ background: 'var(--color-accent)' }} />цель выполнена</span>
+            <span><i className="lg" style={{ background: 'var(--color-warn)' }} />плюс меньше цели</span>
+            <span><i className="lg" style={{ background: 'var(--color-error)' }} />минус</span>
+          </div>
+          <p className="goal-verdict">Этот месяц по плану {signedK(d.current.forecast_net_plan)} тыс. Чтобы выполнять цель, расходы нужны не выше {k(d.averages.expense_limit_for_goal)} тыс.</p>
+        </article>
+
+        <article className="card goal">
+          <div className="goal-head"><span className="goal-n">3</span><h3>Деньги работают</h3></div>
+          <div className="goal-figure"><span className="figure-xl">{k(passive)}</span><span className="muted"> тыс. в месяц пассивно</span></div>
+          <div className="meters">
+            <Meter label="Пассивный доход от цели 1 млн" value={passive} max={b.goal} note={`${(passive / b.goal * 100).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`} />
+            <Meter label="Покрывает средних расходов" value={passive} max={avgExp} note={`${pct(passive, avgExp)}%`} />
+            <Meter label="Подушка от 6 месяцев расходов" value={cushion} max={cushionTarget} warn note={`${k(cushion)} из ${k(cushionTarget)}`} />
+          </div>
+          <p className="goal-verdict">Купоны облигаций после НДФЛ ≈ {k(passive * 0.87)} тыс. в месяц. Подушки хватит на {d.cushion_days} дн.</p>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+function Meter({ label, value, max, note, warn }) {
+  const p = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  return (
+    <div className="meter">
+      <div className="meter-head"><span>{label}</span><span className="num">{note}</span></div>
+      <div className={'bar' + (warn && p < 30 ? ' warn' : '')} role="progressbar" aria-label={label} aria-valuenow={Math.round(p)} aria-valuemin={0} aria-valuemax={100}>
+        <div style={{ transform: `scaleX(${p / 100})` }} />
+      </div>
+    </div>
+  )
+}
+
+// ---------- B. Куда идут деньги ----------
+function topN(obj, n) {
+  const arr = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+  const head = arr.slice(0, n).map(([name, v]) => ({ name, v }))
+  const rest = arr.slice(n).reduce((a, [, v]) => a + v, 0)
+  if (rest > 0) head.push({ name: 'Прочее', v: rest, other: true })
+  return head
+}
+function avgMonths(list, key) {
+  const out = {}
+  list.forEach((m) => Object.entries(m[key] || {}).forEach(([n, v]) => { out[n] = (out[n] || 0) + v / list.length }))
+  return out
+}
+function Flow({ d }) {
+  const full = d.months.filter((m) => !m.partial)
+  const cur = d.months[d.months.length - 1]
+  const last = full[full.length - 1]
+  const periods = [
+    { id: 'last', label: cap(MONTHS_FULL[+last.month.slice(5) - 1]), src: last.sources, exp: last.expenses || {} },
+    { id: 'cur', label: `${cap(MONTHS_FULL[+cur.month.slice(5) - 1])} на сегодня`, src: cur.sources, exp: cur.expenses || {} },
+    { id: 'avg3', label: 'Среднее за 3 мес.', src: avgMonths(full.slice(-3), 'sources'), exp: avgMonths(full.slice(-3), 'expenses') },
+  ]
+  const [pid, setPid] = useState('last')
+  const p = periods.find((x) => x.id === pid)
+  const left = topN(p.src, 5).map((x) => ({ ...x, label: shortName(x.name) }))
+  const right = topN(p.exp, 7).map((x) => ({ ...x, label: x.name }))
+  const inc = left.reduce((a, x) => a + x.v, 0)
+  const exp = right.reduce((a, x) => a + x.v, 0)
+  if (inc > exp) right.push({ name: 'save', label: 'Осталось', v: inc - exp, kind: 'save' })
+  else if (exp > inc) left.push({ name: 'deficit', label: 'Из накоплений', v: exp - inc, kind: 'deficit' })
+  const total = Math.max(inc, exp)
+
+  const W = 1000, H = 380, GAP = 8, NODE = 12
+  const L = 200, CX0 = 470, CX1 = 530, R = 800 - NODE
+  const layout = (nodes) => {
+    const s = (H - GAP * (nodes.length - 1)) / total
+    let y = 0
+    return nodes.map((x) => { const h = Math.max(2, x.v * s); const o = { ...x, y, h }; y += h + GAP; return o })
+  }
+  const ln = layout(left), rn = layout(right)
+  const cs = H / total
+  let cy = 0
+  const leftLinks = ln.map((x) => { const t = cy; cy += x.v * cs; return { x, t, h: x.v * cs } })
+  cy = 0
+  const rightLinks = rn.map((x) => { const t = cy; cy += x.v * cs; return { x, t, h: x.v * cs } })
+  const band = (x0, y0, h0, x1, y1, h1) => {
+    const mx = (x0 + x1) / 2
+    return `M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1} L${x1},${y1 + h1} C${mx},${y1 + h1} ${mx},${y0 + h0} ${x0},${y0 + h0} Z`
+  }
+  const lc = (x, i) => (x.kind === 'deficit' ? 'var(--color-error)' : x.other ? 'var(--color-src-5)' : SRC[i % SRC.length])
+  const rc = (x) => (x.kind === 'save' ? 'var(--color-accent)' : 'var(--color-src-2)')
+  const net = inc - exp
+  return (
+    <section className="section" aria-labelledby="flow-h">
+      <div className="section-head">
+        <h2 id="flow-h">Куда идут деньги: {net >= 0 ? `остаётся ${k(net)}` : `не хватает ${k(-net)}`} тыс. в месяц</h2>
+        <div className="seg" role="group" aria-label="Период">
+          {periods.map((x) => (
+            <button key={x.id} type="button" className={'seg-btn' + (x.id === pid ? ' on' : '')} aria-pressed={x.id === pid} onClick={() => setPid(x.id)}>{x.label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="card">
+        <div className="flow-list">
+          <div>
+            <h3 className="small muted">Откуда пришло</h3>
+            <ul className="cap-list">{left.map((x, i) => <li key={x.name}><span><i className="lg" style={{ background: lc(x, i) }} /> {x.label}</span><span className="num">{k(x.v)}</span></li>)}</ul>
+          </div>
+          <div>
+            <h3 className="small muted">Куда ушло</h3>
+            <ul className="cap-list">{right.map((x) => <li key={x.name}><span><i className="lg" style={{ background: rc(x) }} /> {x.label}</span><span className="num">{k(x.v)}</span></li>)}</ul>
+          </div>
+        </div>
+        <div className="scroll flow-svg">
+          <svg className="chart sankey" viewBox={`-10 -10 ${W + 20} ${H + 20}`} role="img" aria-label={`Доходы ${k(inc)} тыс., расходы ${k(exp)} тыс.`} style={{ minWidth: 720 }}>
+            {leftLinks.map(({ x, t, h }, i) => <path key={'l' + x.name} d={band(L + NODE, ln[i].y, ln[i].h, CX0, t, h)} fill={lc(x, i)} opacity="0.35" />)}
+            {rightLinks.map(({ x, t, h }, i) => <path key={'r' + x.name} d={band(CX1, t, h, R, rn[i].y, rn[i].h)} fill={rc(x)} opacity={x.kind === 'save' ? 0.5 : 0.28} />)}
+            {ln.map((x, i) => (
+              <g key={'ln' + x.name}>
+                <rect x={L} y={x.y} width={NODE} height={x.h} rx="2" fill={lc(x, i)} />
+                <text x={L - 10} y={x.y + x.h / 2} className="s-label" textAnchor="end" dominantBaseline="middle">{x.label} <tspan className="s-val">{k(x.v)}</tspan></text>
+              </g>
+            ))}
+            <rect x={CX0} y="0" width={CX1 - CX0} height={H} rx="4" className="s-pool" />
+            <text x={(CX0 + CX1) / 2} y={H / 2 - 10} className="s-pool-t" textAnchor="middle">{k(total)}</text>
+            <text x={(CX0 + CX1) / 2} y={H / 2 + 10} className="s-pool-s" textAnchor="middle">тыс.</text>
+            {rn.map((x) => (
+              <g key={'rn' + x.name}>
+                <rect x={R} y={x.y} width={NODE} height={x.h} rx="2" fill={rc(x)} />
+                <text x={R + NODE + 10} y={x.y + x.h / 2} className={'s-label' + (x.kind === 'save' ? ' save' : '')} dominantBaseline="middle">{x.label} <tspan className="s-val">{k(x.v)}</tspan></text>
+              </g>
+            ))}
+          </svg>
+        </div>
+        <p className="small muted">Тыс. ₽ в месяц, по категориям Zenmoney. Слева источники дохода, справа категории расходов. Красный поток: сколько пришлось взять из накоплений.</p>
+      </div>
+    </section>
+  )
+}
+
+// ---------- C. Расходы против лимита ----------
+function Spark({ values, max }) {
+  const w = 120, h = 28
+  const mx = max || Math.max(...values, 1)
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - (v / mx) * (h - 2) - 1}`).join(' ')
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="spark" aria-hidden="true">
+      <polyline points={pts} fill="none" stroke="var(--color-src-2)" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx={w} cy={h - (values[values.length - 1] / mx) * (h - 2) - 1} r="2.5" fill="var(--color-ink)" />
+    </svg>
+  )
+}
+function ExpensesVsLimit({ d }) {
+  const full = d.months.filter((m) => !m.partial)
+  const avg3 = avgMonths(full.slice(-3), 'expenses')
+  const total = Object.values(avg3).reduce((a, v) => a + v, 0)
+  const limit = d.averages.expense_limit_for_goal
+  const ratio = total > 0 ? limit / total : 1
+  const cut = total - limit
+  const curCats = Object.fromEntries((d.current.categories || []).map((c) => [c.name, c]))
+  const rows = Object.entries(avg3).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, v]) => ({
+    name, v, series: d.months.map((m) => (m.expenses || {})[name] || 0), now: curCats[name]?.fact || 0, budget: curCats[name]?.budget || 0,
+  }))
+  const top = rows.slice(0, 7)
+  const restV = total - top.reduce((a, x) => a + x.v, 0)
+  const scaleMax = Math.max(total, limit) * 1.04
+  return (
+    <section className="section" aria-labelledby="exp-h">
+      <div className="section-head">
+        <h2 id="exp-h">Расходы {k(total)} тыс. в месяц при лимите {k(limit)} для цели</h2>
+        <span className="muted small">среднее за 3 полных месяца</span>
+      </div>
+      <div className="card">
+        <div className="limit-bar" role="img" aria-label={`Расходы ${k(total)} тыс., лимит ${k(limit)} тыс.`}>
+          <div className="limit-stack" style={{ width: `${(total / scaleMax) * 100}%` }}>
+            {top.map((x, i) => <span key={x.name} style={{ flexGrow: x.v, background: SRC[i % SRC.length] }} title={`${x.name} ${k(x.v)}`} />)}
+            {restV > 0 && <span style={{ flexGrow: restV, background: 'var(--color-src-5)' }} title={`Прочее ${k(restV)}`} />}
+          </div>
+          <span className="limit-line" style={{ left: `${(limit / scaleMax) * 100}%` }}><b>лимит {k(limit)}</b></span>
+        </div>
+        <div className="legend-row small">
+          {top.map((x, i) => <span key={x.name}><i className="lg" style={{ background: SRC[i % SRC.length] }} />{x.name} {k(x.v)}</span>)}
+          {restV > 0 && <span><i className="lg" style={{ background: 'var(--color-src-5)' }} />Прочее {k(restV)}</span>}
+        </div>
+        {cut > 0 && <p className="goal-verdict">Чтобы оставлять {signedK(d.current.goal_net)} тыс., нужно срезать {k(cut)} тыс. в месяц: это {pct(cut, total)}% расходов. Ниже лимит каждой категории, если сокращать всё поровну.</p>}
+        <div className="scroll">
+          <table className="table" style={{ minWidth: 720 }}>
+            <thead><tr><th>Категория</th><th>За 12 месяцев</th><th>В среднем</th><th>Лимит при −{pct(cut, total)}%</th><th>{cap(MONTHS_FULL[+d.month.slice(5) - 1])} сейчас</th><th>Бюджет</th></tr></thead>
             <tbody>
-              {parts.map(([name, v], i) => (
-                <tr key={name}>
-                  <td><span className="swatch" style={{ background: SRC[i] }} aria-hidden="true" />{name}</td>
-                  <td className="num muted">{pct(v, c.total)}%</td>
-                  <td className="num">{rub(v)}</td>
-                </tr>
-              ))}
+              {rows.map((x) => {
+                const lim = x.v * ratio
+                return (
+                  <tr key={x.name}>
+                    <td style={{ paddingLeft: 0 }}>{x.name}</td>
+                    <td><Spark values={x.series} /></td>
+                    <td className="num">{k(x.v)}</td>
+                    <td className="num" style={{ color: 'var(--color-accent-strong)' }}>{k(lim)}</td>
+                    <td className={'num' + (x.now > lim ? ' over-txt' : '')}>{k(x.now)}</td>
+                    <td className="num muted">{x.budget ? k(x.budget) : '—'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
+        </div>
+        <p className="small muted">Тыс. ₽. Красным отмечены категории, где уже в этом месяце потрачено больше пропорционального лимита.</p>
+      </div>
+    </section>
+  )
+}
+
+// ---------- D. Капитал по смыслу ----------
+function CapitalAtWork({ d }) {
+  const g = d.capital.groups, s = d.capital.sums
+  const inv = d.invest || {}
+  const idle = s.free + s.business
+  const kr = d.key_rate?.value || 14
+  const lost = (idle * kr) / 100 / 12
+  const blocks = [
+    { id: 'work', title: 'Приносит доход', v: s.invest, color: 'var(--color-accent)', items: g.invest, note: inv.coupons_month ? `купоны ≈ ${k(inv.coupons_month)} тыс. в месяц${inv.coupon_rate ? `, средний купон ${inv.coupon_rate.toLocaleString('ru-RU')}%` : ''}` : '' },
+    { id: 'long', title: 'Отложено надолго', v: s.long, color: 'var(--color-src-2)', items: g.long, note: 'пенсионные и долгосрочные накопления' },
+    { id: 'cush', title: 'Подушка и цели', v: s.cushion, color: 'var(--color-src-3)', items: g.cushion, note: `хватит на ${d.cushion_days} дн. средних расходов` },
+    { id: 'idle', title: 'Лежит без дохода', v: idle, color: 'var(--color-src-5)', items: [...g.free, ...g.business], note: `при ставке около ключевой (${kr.toLocaleString('ru-RU')}%) это ≈ ${k(lost)} тыс. в месяц; часть нужна на текущие расходы` },
+  ].filter((b) => b.v > 0)
+  return (
+    <section className="section" aria-labelledby="caw-h">
+      <div className="section-head">
+        <h2 id="caw-h">Капитал {mln(d.capital.total)}: {pct(s.invest, d.capital.total)}% приносит доход</h2>
+      </div>
+      <div className="card">
+        <div className="stack" style={{ height: 18 }} role="img" aria-label="Капитал по назначению">
+          {blocks.map((b) => <span key={b.id} style={{ flexGrow: b.v, background: b.color }} title={`${b.title} ${rub(b.v)}`} />)}
+        </div>
+        <div className="grid g4">
+          {blocks.map((b) => (
+            <div key={b.id} className="cap-block">
+              <span className="small" style={{ color: 'var(--color-ink-2)' }}><i className="lg" style={{ background: b.color }} /> {b.title}</span>
+              <span className="figure">{k(b.v)} <span className="small muted">тыс., {pct(b.v, d.capital.total)}%</span></span>
+              <ul className="cap-list">
+                {b.items.map((x) => <li key={x.name}><span>{x.name}</span><span className="num">{k(x.amount)}</span></li>)}
+              </ul>
+              {b.note && <span className="small muted">{b.note}</span>}
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -290,31 +547,6 @@ function NetMonths({ d }) {
   )
 }
 
-// ---------- 5. Капитал ----------
-function Capital({ d }) {
-  const g = d.capital.groups
-  const block = (title, list) => (
-    <div className="section">
-      <div className="section-head"><h3>{title}</h3><span className="num">{rub(list.reduce((a, x) => a + x.amount, 0))}</span></div>
-      <table className="src-table"><tbody>
-        {list.map((x) => <tr key={x.name}><td>{x.name}</td><td className="num">{rub(x.amount)}</td></tr>)}
-      </tbody></table>
-    </div>
-  )
-  return (
-    <section className="section" aria-labelledby="cap-h">
-      <div className="section-head"><h2 id="cap-h">Из чего состоят {mln(d.capital.total)}</h2></div>
-      <div className="card">
-        <div className="grid g2">
-          {block('Свободные деньги', [...g.free, ...g.business])}
-          {block('Сбережения и инвестиции', [...g.invest, ...g.long, ...g.cushion, ...g.other])}
-        </div>
-        {g.debts.length > 0 && block('Долги', g.debts)}
-      </div>
-    </section>
-  )
-}
-
 // ---------- 6. Инвестиции ----------
 function Invest({ inv }) {
   if (!inv || !inv.connected) {
@@ -408,31 +640,6 @@ function Invest({ inv }) {
           </div>
         </div>
       )}
-    </section>
-  )
-}
-
-// ---------- 7. Путь к 1 млн ----------
-function PathToMillion({ d }) {
-  const b = d.income_base
-  const gap = Math.max(0, b.goal - b.total)
-  return (
-    <section className="section" aria-labelledby="pm-h">
-      <div className="section-head">
-        <h2 id="pm-h">Цель 1 000 000 ₽ в месяц: {k(b.total)} из {k(b.goal)} тыс.</h2>
-        <span className="muted small">{pct(b.total, b.goal)}%</span>
-      </div>
-      <div className="card">
-        <div className="stack" style={{ height: 22 }} role="img" aria-label={`База ${k(b.total)} тыс., до цели не хватает ${k(gap)} тыс.`}>
-          {b.items.map((x, i) => <span key={x.name} style={{ flexGrow: x.amount, background: SRC[i] }} title={x.name} />)}
-          {gap > 0 && <span style={{ flexGrow: gap, background: 'transparent', border: '1px dashed var(--color-rule)' }} title="до цели" />}
-        </div>
-        <div className="legend-row small">
-          {b.items.map((x, i) => <span key={x.name}><i className="lg" style={{ background: SRC[i] }} />{shortName(x.name)} {k(x.amount)}</span>)}
-          {gap > 0 && <span><i className="lg gap" />до цели не хватает {k(gap)}</span>}
-        </div>
-        <p className="small muted">База: плановые доходы месяца в Zenmoney без разовых поступлений и возвратов долгов.</p>
-      </div>
     </section>
   )
 }
