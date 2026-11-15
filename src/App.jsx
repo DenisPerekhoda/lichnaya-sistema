@@ -3,6 +3,7 @@ import { NavLink, Route, Routes, Navigate } from 'react-router-dom'
 import { supabase, configured } from './supabase'
 import Login from './pages/Login'
 import Cabinet from './pages/Cabinet'
+import Finance from './pages/Finance'
 import Today from './pages/Today'
 import Goals from './pages/Goals'
 import Showcase from './pages/Showcase'
@@ -56,7 +57,8 @@ export default function App() {
 
 function Shell({ session }) {
   const links = [
-    ['/', 'Кабинет'],
+    ['/', 'Финансы'],
+    ['/cabinet', 'Кабинет'],
     ['/today', 'Сегодня'],
     ['/goals', 'Цели и чек-ин'],
     ['/settings', 'Витрина и данные'],
@@ -83,7 +85,8 @@ function Shell({ session }) {
       </header>
       <main className="page">
         <Routes>
-          <Route path="/" element={<Cabinet userId={session.user.id} />} />
+          <Route path="/" element={<Finance />} />
+          <Route path="/cabinet" element={<Cabinet userId={session.user.id} />} />
           <Route path="/today" element={<Today userId={session.user.id} />} />
           <Route path="/goals" element={<Goals userId={session.user.id} />} />
           <Route path="/settings" element={<Settings userId={session.user.id} />} />
